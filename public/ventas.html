@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Ventas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.0/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    
+    
+    <script src="ventas.js" defer></script> <!-- ✅ Solución -->
+    <link rel="stylesheet" href="styles.css">
+    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Tu script debe ir después de Bootstrap -->
+<style>
+    /* Mejoras para móviles */
+    .btn-sm { width: 100%; }
+    .table-responsive { overflow-x: auto; }
+    .modal-dialog { max-width: 90%; }
+
+    /* ✅ Permitir que el dropdown se muestre completo en modales */
+.modal-content {
+    overflow: visible !important;
+}
+
+/* ✅ Que los menús tengan scroll si hay muchas opciones */
+.dropdown-menu {
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 9999;
+}
+
+/* (opcional) Ajuste visual si usás tablas responsivas */
+.table-responsive {
+    overflow: visible !important;
+}
+
+</style>
+</head>
+<body class="container py-4">
+    <h1 class="text-center">Gestión de Ventas</h1>
+
+    <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
+        <button class="btn btn-primary btn-sm" onclick="abrirModalVenta()">Agregar Venta</button>
+        <select id="clienteSelect" class="form-select form-select-sm w-auto">
+            <option value="">-- Selecciona un cliente --</option>
+        </select>
+        <button class="btn btn-info btn-sm" onclick="generarEstadoCuentaPDF()">Estado Cliente</button>
+    </div>
+
+    <h2 class="text-center">Lista de Ventas</h2>
+    <div class="row g-2 mb-3">
+        <div class="col-12 col-md-4">
+            <input type="text" id="filtroCliente" class="form-control form-control-sm" placeholder="Buscar por cliente" oninput="filtrarVentas()">
+        </div>
+        <div class="col-12 col-md-4">
+            <input type="text" id="filtroFolio" class="form-control form-control-sm" placeholder="Buscar por folio" oninput="filtrarVentas()">
+        </div>
+        <div class="col-12 col-md-4">
+            <select id="filtroEstado" class="form-select form-select-sm" onchange="filtrarVentas()">
+                <option value="">-- Filtrar por estado --</option>
+                <option value="pendiente">Saldo pendiente</option>
+                <option value="pagada">Pagadas</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-striped table-hover text-center">
+            <thead class="table-dark">
+                <tr>
+                    <th>Cliente</th>
+                    <th>Fecha</th>
+                    <th>Saldo Inicial</th>
+                    <th>Saldo Actual</th>
+                    <th>Folio</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="ventasTable"></tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-center align-items-center mt-3 gap-2 flex-wrap">
+        <button class="btn btn-outline-primary btn-sm btn-previous" onclick="cambiarPagina(-1)">⬅ Anterior</button>
+        <span id="paginaActual" class="fw-bold">Página 1</span>
+        <button class="btn btn-outline-primary btn-sm btn-next" onclick="cambiarPagina(1)">Siguiente ➡</button>
+    </div>
+    
+
+    <!-- Modal para Abonar -->
+<!-- Modal para Abonar -->
+<div class="modal fade" id="modalAbono" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Abono</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="ventaId">
+                <label>Monto del Abono:</label>
+                <input type="number" id="inputMontoAbono" class="form-control">
+                <label>Fecha del Abono:</label>
+                <input type="date" id="inputFechaAbono" class="form-control">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="agregarAbono()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Historial de Abonos -->
+<div class="modal fade" id="modalHistorialAbonos" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Historial de Abonos - <span id="historialCliente"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Información de la venta -->
+                <div class="mb-3">
+                    <p><strong>Fecha de Venta:</strong> <span id="historialFecha"></span></p>
+                    <p><strong>Saldo Inicial:</strong> $<span id="historialSaldoInicial"></span></p>
+                    <p><strong>Saldo Pendiente:</strong> $<span id="historialSaldoPendiente"></span></p>
+                </div>
+
+                <!-- Aquí se llenará la tabla con los abonos -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Monto</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaHistorialAbonos">
+                            <!-- Se llenará con JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+    <!-- Modal para Agregar Nueva Venta -->
+<div class="modal fade" id="modalVenta" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Nueva Venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="cliente" class="form-label">Cliente</label>
+                    <input type="text" id="cliente" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label for="fecha" class="form-label">Fecha</label>
+                    <input type="date" id="fecha" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label for="monto" class="form-label">Monto</label>
+                    <input type="number" id="monto" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label for="folio" class="form-label">Folio</label>
+                    <input type="text" id="folio" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="agregarVenta()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Venta -->
+<div class="modal fade" id="modalEditarVenta" tabindex="-1" aria-labelledby="modalEditarVentaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarVentaLabel">Editar Venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editVentaId">
+                <label>Cliente:</label>
+                <input type="text" id="editCliente" class="form-control">
+                <label>Fecha:</label>
+                <input type="date" id="editFecha" class="form-control">
+                <label>Monto:</label>
+                <input type="number" id="editMonto" class="form-control">
+                <label>Folio:</label>
+                <input type="text" id="editFolio" class="form-control">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarEdicionVenta()">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll('.dropdown').forEach(drop => {
+            drop.addEventListener('show.bs.dropdown', function () {
+                const rect = drop.getBoundingClientRect();
+                const espacioAbajo = window.innerHeight - rect.bottom;
+    
+                if (espacioAbajo < 160) {
+                    drop.classList.add('dropup'); // 🔼 Fuerza el menú hacia arriba
+                } else {
+                    drop.classList.remove('dropup'); // 🔽 Menú normal hacia abajo
+                }
+            });
+        });
+    });
+    </script>
+    
+</body>
+</html>
